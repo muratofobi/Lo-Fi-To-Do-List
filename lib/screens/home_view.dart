@@ -7,7 +7,15 @@ import '../services/notification_service.dart';
 
 class HomeView extends StatefulWidget {
   final List<TaskItem> tasks;
-  const HomeView({super.key, required this.tasks});
+  final String userName;
+  final Function(String) onUserNameChanged; // İsim değişikliği callback'i
+
+  const HomeView({
+    super.key,
+    required this.tasks,
+    required this.userName,
+    required this.onUserNameChanged,
+  });
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -21,8 +29,6 @@ class _HomeViewState extends State<HomeView> {
   int _timerDurationInSeconds = 25 * 60;
   int _remainingSeconds = 25 * 60;
   bool _isRunning = false;
-
-  // GLOBAL SES KONTROLÜ (Master Switch)
   bool _isSoundEnabled = true;
 
   @override
@@ -44,8 +50,7 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _startTimer() {
-    if (_remainingSeconds <= 0) return; // 0 saniyeye alarm kurulmaz!
-
+    if (_remainingSeconds <= 0) return;
     if (_countdownTimer != null) _countdownTimer!.cancel();
     setState(() => _isRunning = true);
 
@@ -66,8 +71,6 @@ class _HomeViewState extends State<HomeView> {
   void _pauseTimer() {
     _countdownTimer?.cancel();
     setState(() => _isRunning = false);
-
-    // Timer durdurulduğunda arka plandaki bildirimi iptal et
     NotificationService().cancelNotification();
   }
 
@@ -77,9 +80,102 @@ class _HomeViewState extends State<HomeView> {
       _isRunning = false;
       _remainingSeconds = _timerDurationInSeconds;
     });
-
-    // Timer sıfırlandığında arka plandaki bildirimi iptal et
     NotificationService().cancelNotification();
+  }
+
+  // --- AYARLAR MENÜSÜ (BOTTOM SHEET) ---
+  void _showSettingsModal() {
+    final TextEditingController nameEditController = TextEditingController(
+      text: widget.userName,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF282A45),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: Color(0xFFE5A96A), width: 1.5),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "⚙️ Ayarlar",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white54),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(color: Color(0xFF535882), thickness: 1),
+              const SizedBox(height: 10),
+              const Text(
+                "Kullanıcı Adını Değiştir",
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: nameEditController,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: const InputDecoration(
+                  hintText: "Yeni adını gir...",
+                  hintStyle: TextStyle(color: Colors.white38),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF535882)),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE5A96A)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE5A96A),
+                    foregroundColor: const Color(0xFF282A45),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: () {
+                    String newName = nameEditController.text.trim();
+                    if (newName.isNotEmpty) {
+                      widget.onUserNameChanged(newName); // İsmi güncelle
+                    }
+                    Navigator.pop(context); // Menüyü kapat
+                  },
+                  child: const Text(
+                    "Kaydet",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showSetTimerDialog() {
@@ -155,8 +251,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                   ),
                   child: CupertinoTimerPicker(
-                    mode: CupertinoTimerPickerMode
-                        .ms, // Dakika ve Saniye İnce Ayarı
+                    mode: CupertinoTimerPickerMode.ms,
                     initialTimerDuration: Duration(
                       seconds: _timerDurationInSeconds,
                     ),
@@ -178,12 +273,6 @@ class _HomeViewState extends State<HomeView> {
     _realTimeTimer.cancel();
     _countdownTimer?.cancel();
     super.dispose();
-  }
-
-  void _toggleSound() {
-    setState(() {
-      _isSoundEnabled = !_isSoundEnabled;
-    });
   }
 
   @override
@@ -211,18 +300,18 @@ class _HomeViewState extends State<HomeView> {
                   child: Icon(Icons.person, color: Color(0xFF282A45)),
                 ),
                 const SizedBox(width: 12),
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Hoş Geldin, Murat!",
-                      style: TextStyle(
+                      "Hoş Geldin, ${widget.userName}!",
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Row(
+                    const Row(
                       children: [
                         Icon(Icons.star, color: Color(0xFFE5A96A), size: 14),
                         SizedBox(width: 4),
@@ -235,19 +324,14 @@ class _HomeViewState extends State<HomeView> {
                   ],
                 ),
                 const Spacer(),
-                Visibility(
-                  visible: false,
-                  child: GestureDetector(
-                    onTap: _toggleSound,
-                    child: Icon(
-                      _isSoundEnabled ? Icons.volume_up : Icons.volume_off,
-                      color: _isSoundEnabled ? Colors.white : Colors.redAccent,
-                      size: 28,
-                    ),
+                // AYARLAR BUTONUNA TIKLAMA ÖZELLİĞİ EKLENDİ
+                GestureDetector(
+                  onTap: _showSettingsModal,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(Icons.settings, color: Colors.white, size: 24),
                   ),
                 ),
-                const SizedBox(width: 12),
-                const Icon(Icons.settings, color: Colors.white, size: 24),
               ],
             ),
           ),
@@ -293,7 +377,7 @@ class _HomeViewState extends State<HomeView> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      "Focus Timer",
+                      "Zamanlayıcı",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -355,7 +439,7 @@ class _HomeViewState extends State<HomeView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "To-Do Özet",
+                  "Görevler Ön İzlenim",
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,

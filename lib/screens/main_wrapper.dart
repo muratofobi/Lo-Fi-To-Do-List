@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/task_item.dart';
 import 'home_view.dart';
 import 'tasks_view.dart';
 import 'journal_view.dart';
 
 class MainWrapper extends StatefulWidget {
-  const MainWrapper({super.key});
+  final String userName;
+  const MainWrapper({super.key, required this.userName});
 
   @override
   State<MainWrapper> createState() => _MainWrapperState();
@@ -13,6 +15,22 @@ class MainWrapper extends StatefulWidget {
 
 class _MainWrapperState extends State<MainWrapper> {
   int _selectedIndex = 0;
+  late String _currentUserName;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUserName = widget.userName;
+  }
+
+  // İsmi güncelleyen ve hafızaya kaydeden fonksiyon
+  Future<void> _updateUserName(String newName) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', newName);
+    setState(() {
+      _currentUserName = newName;
+    });
+  }
 
   List<TaskItem> globalTasks = [
     TaskItem(id: '1', title: "Flutter arayüzünü bitir", date: DateTime.now()),
@@ -31,9 +49,13 @@ class _MainWrapperState extends State<MainWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // Sayfaları bir kez oluşturuyoruz
     final List<Widget> pages = [
-      HomeView(tasks: globalTasks),
+      HomeView(
+        tasks: globalTasks,
+        userName: _currentUserName,
+        onUserNameChanged:
+            _updateUserName, // Ayarlar için fonksiyonu iletiyoruz
+      ),
       TasksView(tasks: globalTasks, onTasksUpdated: () => setState(() {})),
       const JournalView(),
     ];
@@ -41,7 +63,6 @@ class _MainWrapperState extends State<MainWrapper> {
     return Scaffold(
       body: Stack(
         children: [
-          // Arka plan resmi
           Positioned.fill(
             child: Image.asset(
               'img/background.png',
@@ -50,11 +71,9 @@ class _MainWrapperState extends State<MainWrapper> {
                   Container(color: const Color(0xFF141526)),
             ),
           ),
-          // Karartma katmanı
           Positioned.fill(
             child: Container(color: Colors.black.withOpacity(0.3)),
           ),
-          // ÇÖZÜM BURADA: IndexedStack sayesinde sayfalar arka planda hayatta kalır!
           SafeArea(
             child: IndexedStack(index: _selectedIndex, children: pages),
           ),
