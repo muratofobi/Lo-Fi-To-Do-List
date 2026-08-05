@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'dart:async';
 import '../models/task_item.dart';
 import '../widgets/retro_card.dart';
+import '../services/notification_service.dart';
 
 class HomeView extends StatefulWidget {
   final List<TaskItem> tasks;
@@ -20,14 +22,14 @@ class _HomeViewState extends State<HomeView> {
   int _remainingSeconds = 25 * 60;
   bool _isRunning = false;
 
-  bool _isMusicPlaying = true; // Sadece görsel amaçlı tutuyoruz
+  // GLOBAL SES KONTROLÜ (Master Switch)
+  bool _isSoundEnabled = true;
 
   @override
   void initState() {
     super.initState();
     _updateTime();
 
-    // Zamanlayıcı
     _realTimeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _updateTime();
     });
@@ -42,8 +44,14 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _startTimer() {
+    if (_remainingSeconds <= 0) return; // 0 saniyeye alarm kurulmaz!
+
     if (_countdownTimer != null) _countdownTimer!.cancel();
     setState(() => _isRunning = true);
+
+    if (_isSoundEnabled) {
+      NotificationService().scheduleTimerNotification(_remainingSeconds);
+    }
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
@@ -58,6 +66,9 @@ class _HomeViewState extends State<HomeView> {
   void _pauseTimer() {
     _countdownTimer?.cancel();
     setState(() => _isRunning = false);
+
+    // Timer durdurulduğunda arka plandaki bildirimi iptal et
+    NotificationService().cancelNotification();
   }
 
   void _resetTimer() {
@@ -66,73 +77,97 @@ class _HomeViewState extends State<HomeView> {
       _isRunning = false;
       _remainingSeconds = _timerDurationInSeconds;
     });
+
+    // Timer sıfırlandığında arka plandaki bildirimi iptal et
+    NotificationService().cancelNotification();
   }
 
   void _showSetTimerDialog() {
-    TextEditingController minController = TextEditingController(
-      text: (_timerDurationInSeconds ~/ 60).toString(),
-    );
+    int tempSeconds = _timerDurationInSeconds;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      backgroundColor: const Color(0xFF282A45),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF282A45),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Color(0xFFE5A96A), width: 1.5),
+        return SizedBox(
+          height: 300,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12.0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        "İptal",
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    ),
+                    const Text(
+                      "Süreyi Belirle",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _timerDurationInSeconds = tempSeconds;
+                          _remainingSeconds = _timerDurationInSeconds;
+                          _isRunning = false;
+                          _countdownTimer?.cancel();
+                        });
+                        NotificationService().cancelNotification();
+                        Navigator.pop(context);
+                      },
+                      child: const Text(
+                        "Ayarla",
+                        style: TextStyle(
+                          color: Color(0xFFE5A96A),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Color(0xFF535882), thickness: 1),
+              Expanded(
+                child: CupertinoTheme(
+                  data: const CupertinoThemeData(
+                    textTheme: CupertinoTextThemeData(
+                      pickerTextStyle: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                  ),
+                  child: CupertinoTimerPicker(
+                    mode: CupertinoTimerPickerMode
+                        .ms, // Dakika ve Saniye İnce Ayarı
+                    initialTimerDuration: Duration(
+                      seconds: _timerDurationInSeconds,
+                    ),
+                    onTimerDurationChanged: (Duration newDuration) {
+                      tempSeconds = newDuration.inSeconds;
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
-          title: const Text(
-            "Süreyi Belirle (Dakika)",
-            style: TextStyle(color: Colors.white, fontSize: 16),
-          ),
-          content: TextField(
-            controller: minController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF535882)),
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFE5A96A)),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                "İptal",
-                style: TextStyle(color: Colors.white54),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE5A96A),
-                foregroundColor: const Color(0xFF282A45),
-              ),
-              onPressed: () {
-                setState(() {
-                  int minutes = int.tryParse(minController.text) ?? 25;
-                  _timerDurationInSeconds = minutes * 60;
-                  _remainingSeconds = _timerDurationInSeconds;
-                  _isRunning = false;
-                  _countdownTimer?.cancel();
-                });
-                Navigator.pop(context);
-              },
-              child: const Text(
-                "Ayarla",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
         );
       },
     );
@@ -145,10 +180,9 @@ class _HomeViewState extends State<HomeView> {
     super.dispose();
   }
 
-  // Sadece arayüzdeki ikonun durumunu değiştirir
-  void _toggleMusic() {
+  void _toggleSound() {
     setState(() {
-      _isMusicPlaying = !_isMusicPlaying;
+      _isSoundEnabled = !_isSoundEnabled;
     });
   }
 
@@ -201,26 +235,15 @@ class _HomeViewState extends State<HomeView> {
                   ],
                 ),
                 const Spacer(),
-                GestureDetector(
-                  onTap: _toggleMusic,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      const Icon(
-                        Icons.music_note,
-                        color: Colors.white,
-                        size: 26,
-                      ),
-                      if (!_isMusicPlaying)
-                        Transform.rotate(
-                          angle: -0.785,
-                          child: Container(
-                            width: 28,
-                            height: 2.5,
-                            color: Colors.redAccent,
-                          ),
-                        ),
-                    ],
+                Visibility(
+                  visible: false,
+                  child: GestureDetector(
+                    onTap: _toggleSound,
+                    child: Icon(
+                      _isSoundEnabled ? Icons.volume_up : Icons.volume_off,
+                      color: _isSoundEnabled ? Colors.white : Colors.redAccent,
+                      size: 28,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

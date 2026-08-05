@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import 'screens/main_wrapper.dart';
+import 'services/notification_service.dart';
 
-void main() {
+void main() async {
+  // Flutter'ın çekirdek bileşenlerini başlatır (Native işlemler öncesi şarttır)
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Bildirim servisini başlat ve gerekli izinleri iste
+  final notificationService = NotificationService();
+  await notificationService.init();
+  await notificationService.requestPermissions();
+
   runApp(const LoFiToDoApp());
 }
 

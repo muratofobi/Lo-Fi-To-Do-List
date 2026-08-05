@@ -10,6 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  flutter_local_notifications: ^17.2.1
+  timezone: 0.9.3
 
 dev_dependencies:
   flutter_test:
@@ -20,7 +22,4 @@ flutter:
   uses-material-design: true
   assets:
     - img/
-
-assets:
-  - img/
-  - assets/audio/
+    - img/assets/audio/
