@@ -23,4 +23,5 @@ flutter:
   uses-material-design: true
   assets:
     - img/
+    - img/Icons/
     - img/assets/audio/

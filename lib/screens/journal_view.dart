@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import '../widgets/retro_card.dart';
+import '../utils/level_system.dart'; // Algoritmayı çağırdık
 
 class JournalView extends StatefulWidget {
-  const JournalView({super.key});
+  final Function(int) onUserXpGained; // XP tetikleyicisi eklendi
+
+  const JournalView({super.key, required this.onUserXpGained});
 
   @override
   State<JournalView> createState() => _JournalViewState();
 }
 
 class _JournalViewState extends State<JournalView> {
-  // Seçili olan gün
   DateTime _selectedDate = DateTime.now();
   bool _isEditMode = false;
 
-  // GLOBAL RUTİN LİSTESİ: Eklenen, silinen veya sıralaması değişen rutinler tüm günleri etkiler.
   List<Map<String, dynamic>> _globalHabits = [
     {"id": "1", "title": "Beslenme düzenime uydum"},
     {"id": "2", "title": "Antrenman yaptım"},
@@ -21,39 +22,49 @@ class _JournalViewState extends State<JournalView> {
     {"id": "4", "title": "Günlük yazdım"},
   ];
 
-  // O güne ait geçici veritabanı yapısı
   final Map<String, Map<String, dynamic>> _dailyDatabase = {};
-
   int _selectedMood = 2;
   final TextEditingController _journalController = TextEditingController();
 
-  // SEÇİLİ GÜNÜN TİK (CHECK) DURUMLARI: Sadece o güne özel kalır (habit ID -> true/false)
   Map<String, bool> _currentHabitStatus = {};
+
+  // XP FARM'INI ENGELLEMEK İÇİN GEREKLİ: O gün için önceden kaydedilmiş metnin XP değerini tutar
+  int _previouslySavedJournalXp = 0;
 
   @override
   void initState() {
     super.initState();
-    // Uygulama ilk açıldığında bugünün verilerini yükle
     _loadDataForDate(_selectedDate);
   }
 
-  // Tarihi düzgün bir metne çeviren yardımcı fonksiyon
   String _getDateKey(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
-  // Mevcut ekrandaki verileri seçili günün anahtarıyla hafızaya kaydet
   void _saveCurrentData() {
     String key = _getDateKey(_selectedDate);
+
+    // === METİN (JOURNAL) XP HESAPLAMASI ===
+    // Metin için kazanılması gereken yeni XP miktarını algoritmaya soruyoruz
+    int newJournalXp = LevelSystem.calculateJournalXp(_journalController.text);
+
+    // Yalnızca aradaki farkı Ana Beyne gönderiyoruz (Eğer sildiyse negatif XP gider)
+    int xpDifference = newJournalXp - _previouslySavedJournalXp;
+    if (xpDifference != 0) {
+      widget.onUserXpGained(xpDifference);
+      _previouslySavedJournalXp =
+          newJournalXp; // Kaydedilen durumu güncelliyoruz
+    }
+
     _dailyDatabase[key] = {
       'mood': _selectedMood,
       'journal': _journalController.text,
-      // O günkü tikleri kaydediyoruz
       'habitStatus': Map<String, bool>.from(_currentHabitStatus),
+      'savedJournalXp':
+          _previouslySavedJournalXp, // O günün XP'sini de veritabanına ekliyoruz
     };
   }
 
-  // Seçilen günün verilerini hafızadan ekrana yükle
   void _loadDataForDate(DateTime date) {
     String key = _getDateKey(date);
 
@@ -63,24 +74,24 @@ class _JournalViewState extends State<JournalView> {
         _selectedMood = data['mood'];
         _journalController.text = data['journal'];
         _currentHabitStatus = Map<String, bool>.from(data['habitStatus']);
+        _previouslySavedJournalXp = data['savedJournalXp'] ?? 0;
       });
     } else {
-      // O güne ilk defa giriliyorsa her şey sıfırdır, tikler boştur
       setState(() {
-        _selectedMood = 2;
+        _selectedMood = 1;
         _journalController.text = "";
         _currentHabitStatus = {};
+        _previouslySavedJournalXp = 0;
       });
     }
   }
 
-  // Takvimden tarih seçme fonksiyonu
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      lastDate: DateTime(2050),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -152,7 +163,6 @@ class _JournalViewState extends State<JournalView> {
               onPressed: () {
                 if (titleController.text.isNotEmpty) {
                   setState(() {
-                    // YENİ MANTIK: Eklenen şey global listeye eklenir
                     _globalHabits.add({
                       "id": DateTime.now().millisecondsSinceEpoch.toString(),
                       "title": titleController.text,
@@ -347,13 +357,11 @@ class _JournalViewState extends State<JournalView> {
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _globalHabits
-                      .length, // YENİ MANTIK: Artık global listeyi okuyoruz
+                  itemCount: _globalHabits.length,
                   itemBuilder: (context, index) {
                     final habit = _globalHabits[index];
                     final habitId = habit["id"];
 
-                    // Tik (Tamamlanma) durumunu güncel günün statüsünden çekiyoruz (YENİ MANTIK)
                     bool isChecked = _currentHabitStatus[habitId] ?? false;
 
                     return ListTile(
@@ -366,9 +374,19 @@ class _JournalViewState extends State<JournalView> {
                         checkColor: const Color(0xFF282A45),
                         onChanged: (val) {
                           setState(() {
-                            // Tıklanıldığında sadece o günün tik durumuna kaydet (YENİ MANTIK)
                             _currentHabitStatus[habitId] = val ?? false;
                           });
+
+                          // === RUTİNLER İÇİN XP TETİKLEYİCİ ===
+                          if (val == true) {
+                            widget.onUserXpGained(
+                              LevelSystem.routineCompletedXp,
+                            );
+                          } else {
+                            widget.onUserXpGained(
+                              -LevelSystem.routineCompletedXp,
+                            );
+                          }
                         },
                       ),
                       title: Text(
@@ -388,7 +406,6 @@ class _JournalViewState extends State<JournalView> {
                                   GestureDetector(
                                     onTap: () {
                                       setState(() {
-                                        // Silme işlemi tüm günler için global listeden siler
                                         _globalHabits.removeAt(index);
                                       });
                                     },
@@ -509,7 +526,9 @@ class _JournalViewState extends State<JournalView> {
                       _saveCurrentData();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("Günlük başarıyla kaydedildi!"),
+                          content: Text(
+                            "Günlük başarıyla kaydedildi! XP'niz hesaplandı.",
+                          ),
                           duration: Duration(seconds: 2),
                         ),
                       );

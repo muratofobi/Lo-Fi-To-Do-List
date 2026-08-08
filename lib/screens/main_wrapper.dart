@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/task_item.dart';
+import '../utils/level_system.dart';
 import 'home_view.dart';
 import 'tasks_view.dart';
 import 'journal_view.dart';
 
 class MainWrapper extends StatefulWidget {
   final String userName;
-  const MainWrapper({super.key, required this.userName});
+  final String userAvatar;
+  final int userXp;
+
+  const MainWrapper({
+    super.key,
+    required this.userName,
+    required this.userAvatar,
+    required this.userXp,
+  });
 
   @override
   State<MainWrapper> createState() => _MainWrapperState();
@@ -16,20 +25,57 @@ class MainWrapper extends StatefulWidget {
 class _MainWrapperState extends State<MainWrapper> {
   int _selectedIndex = 0;
   late String _currentUserName;
+  late String _currentUserAvatar;
+  late int _currentUserXp;
 
   @override
   void initState() {
     super.initState();
     _currentUserName = widget.userName;
+    _currentUserAvatar = widget.userAvatar;
+    _currentUserXp = widget.userXp;
   }
 
-  // İsmi güncelleyen ve hafızaya kaydeden fonksiyon
-  Future<void> _updateUserName(String newName) async {
+  Future<void> _updateUserPrefs(String newName, String newAvatar) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_name', newName);
+    await prefs.setString('user_avatar', newAvatar);
     setState(() {
       _currentUserName = newName;
+      _currentUserAvatar = newAvatar;
     });
+  }
+
+  // === XP GÜNCELLEME VE HAFIZAYA KAYDETME FONKSİYONU ===
+  Future<void> _updateUserXp(int amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    int newXp = _currentUserXp + amount;
+
+    if (newXp < 0) newXp = 0; // Eksi level olmasını engeller
+
+    await prefs.setInt('user_xp', newXp);
+    setState(() {
+      _currentUserXp = newXp; // Arayüzü tetikler
+    });
+  }
+
+  // === TÜM UYGULAMANIN GÖREV VE XP KONTROL MERKEZİ ===
+  void _toggleTask(String taskId) {
+    final taskIndex = globalTasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex != -1) {
+      bool wasCompleted = globalTasks[taskIndex].isCompleted;
+
+      setState(() {
+        globalTasks[taskIndex].isCompleted = !wasCompleted;
+      });
+
+      // XP'yi LevelSystem sınıfındaki kurallara göre ekle veya çıkar
+      if (!wasCompleted) {
+        _updateUserXp(LevelSystem.taskCompletedXp);
+      } else {
+        _updateUserXp(-LevelSystem.taskCompletedXp);
+      }
+    }
   }
 
   List<TaskItem> globalTasks = [
@@ -53,11 +99,21 @@ class _MainWrapperState extends State<MainWrapper> {
       HomeView(
         tasks: globalTasks,
         userName: _currentUserName,
-        onUserNameChanged:
-            _updateUserName, // Ayarlar için fonksiyonu iletiyoruz
+        userAvatar: _currentUserAvatar,
+        userXp: _currentUserXp,
+        onUserPrefsChanged: _updateUserPrefs,
+        onUserXpGained: _updateUserXp,
+        onTaskToggled: _toggleTask,
       ),
-      TasksView(tasks: globalTasks, onTasksUpdated: () => setState(() {})),
-      const JournalView(),
+      TasksView(
+        tasks: globalTasks,
+        onTasksUpdated: () => setState(() {}),
+        onTaskToggled: _toggleTask, // TasksView'a XP tetikleyicisini yolladık
+      ),
+      JournalView(
+        onUserXpGained:
+            _updateUserXp, // JournalView'a XP tetikleyicisini yolladık
+      ),
     ];
 
     return Scaffold(

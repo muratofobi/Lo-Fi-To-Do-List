@@ -5,11 +5,13 @@ import '../widgets/retro_card.dart';
 class TasksView extends StatefulWidget {
   final List<TaskItem> tasks;
   final VoidCallback onTasksUpdated;
+  final Function(String) onTaskToggled; // Merkezi tetikleyiciyi ekledik
 
   const TasksView({
     super.key,
     required this.tasks,
     required this.onTasksUpdated,
+    required this.onTaskToggled,
   });
 
   @override
@@ -17,7 +19,6 @@ class TasksView extends StatefulWidget {
 }
 
 class _TasksViewState extends State<TasksView> {
-  // Tamamlananlar penceresinin açık/kapalı durumunu kontrol eden değişken
   bool _isCompletedExpanded = false;
 
   void _showTaskDialog({TaskItem? existingTask}) {
@@ -161,10 +162,8 @@ class _TasksViewState extends State<TasksView> {
           contentPadding: EdgeInsets.zero,
           leading: GestureDetector(
             onTap: () {
-              setState(() {
-                task.isCompleted = !task.isCompleted;
-              });
-              widget.onTasksUpdated();
+              // YENİ: Sadece Merkezi Tetikleyiciyi çağırıyoruz, gerisini o hallediyor
+              widget.onTaskToggled(task.id);
             },
             child: Icon(
               task.isCompleted
@@ -267,7 +266,6 @@ class _TasksViewState extends State<TasksView> {
                     },
                   ),
 
-                  // 2. TAMAMLANAN GÖREVLER (BUTON GÖRÜNÜMÜ)
                   if (completedTasks.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     GestureDetector(
@@ -283,18 +281,12 @@ class _TasksViewState extends State<TasksView> {
                           vertical: 12.0,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF1E1F36,
-                          ), // Arka plandan hafif daha koyu/farklı bir renk
+                          color: const Color(0xFF1E1F36),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _isCompletedExpanded
-                                ? const Color(0xFFE5A96A).withOpacity(
-                                    0.7,
-                                  ) // Açıksa sınır parlar
-                                : const Color(
-                                    0xFF535882,
-                                  ).withOpacity(0.5), // Kapalıysa soluk sınır
+                                ? const Color(0xFFE5A96A).withOpacity(0.7)
+                                : const Color(0xFF535882).withOpacity(0.5),
                             width: 1.5,
                           ),
                         ),
