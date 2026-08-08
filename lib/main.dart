@@ -10,17 +10,21 @@ void main() async {
   await notificationService.init();
   await notificationService.requestPermissions();
 
-  // Hafızada daha önce kayıtlı isim, avatar ve XP var mı kontrol et
   final prefs = await SharedPreferences.getInstance();
   final String? savedName = prefs.getString('user_name');
   final String? savedAvatar = prefs.getString('user_avatar');
-  final int? savedXp = prefs.getInt('user_xp'); // XP verisini çekiyoruz
+
+  // YENİ: 48 Karakterin tamamının XP'sini hafızadan topluyoruz
+  final Map<String, int> loadedAvatarXps = {};
+  for (int i = 1; i <= 48; i++) {
+    loadedAvatarXps['Icon$i'] = prefs.getInt('xp_Icon$i') ?? 0;
+  }
 
   runApp(
     LoFiToDoApp(
       initialUserName: savedName,
       initialUserAvatar: savedAvatar ?? 'Icon1',
-      initialUserXp: savedXp ?? 0, // Eğer kayıtlı XP yoksa 0'dan başlar
+      allAvatarXps: loadedAvatarXps, // Tüm karakterlerin verisini yolluyoruz
     ),
   );
 }
@@ -28,13 +32,13 @@ void main() async {
 class LoFiToDoApp extends StatelessWidget {
   final String? initialUserName;
   final String initialUserAvatar;
-  final int initialUserXp; // XP değişkeni eklendi
+  final Map<String, int> allAvatarXps;
 
   const LoFiToDoApp({
     super.key,
     this.initialUserName,
     required this.initialUserAvatar,
-    required this.initialUserXp,
+    required this.allAvatarXps,
   });
 
   @override
@@ -51,11 +55,11 @@ class LoFiToDoApp extends StatelessWidget {
         ),
       ),
       home: initialUserName == null
-          ? const NamePromptScreen()
+          ? NamePromptScreen(allAvatarXps: allAvatarXps)
           : MainWrapper(
               userName: initialUserName!,
               userAvatar: initialUserAvatar,
-              userXp: initialUserXp, // Veriyi Wrapper'a iletiyoruz
+              allAvatarXps: allAvatarXps,
             ),
     );
   }
@@ -63,7 +67,8 @@ class LoFiToDoApp extends StatelessWidget {
 
 // --- İLK AÇILIŞTA İSİM VE AVATAR SORMA EKRANI ---
 class NamePromptScreen extends StatefulWidget {
-  const NamePromptScreen({super.key});
+  final Map<String, int> allAvatarXps;
+  const NamePromptScreen({super.key, required this.allAvatarXps});
 
   @override
   State<NamePromptScreen> createState() => _NamePromptScreenState();
@@ -76,10 +81,7 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
 
   Future<void> _saveNameAndProceed() async {
     if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     String name = _nameController.text.trim();
     if (name.isEmpty) name = "Gezgin";
@@ -87,14 +89,11 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
     try {
       FocusScope.of(context).unfocus();
 
-      // İsim, Avatar ve 0 XP'yi başlangıç olarak kaydet
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_name', name);
       await prefs.setString('user_avatar', _selectedAvatar);
-      await prefs.setInt('user_xp', 0); // Başlangıç seviyesi için 0 XP
 
       await Future.delayed(const Duration(milliseconds: 100));
-
       if (!mounted) return;
 
       Navigator.pushReplacement(
@@ -103,16 +102,12 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
           builder: (context) => MainWrapper(
             userName: name,
             userAvatar: _selectedAvatar,
-            userXp: 0,
+            allAvatarXps: widget.allAvatarXps,
           ),
         ),
       );
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -176,12 +171,12 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
                     ),
                     const SizedBox(height: 24),
                     const Text(
-                      "Avatarını Seç",
+                      "Karakterini Seç",
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
-                      height: 160,
+                      height: 200,
                       child: GridView.builder(
                         physics: const BouncingScrollPhysics(),
                         gridDelegate:
@@ -189,6 +184,8 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
                               crossAxisCount: 6,
                               crossAxisSpacing: 8,
                               mainAxisSpacing: 8,
+                              childAspectRatio:
+                                  0.65, // Metnin sığması için oranı ayarladık
                             ),
                         itemCount: 48,
                         itemBuilder: (context, index) {
@@ -200,34 +197,55 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
                                 _selectedAvatar = iconName;
                               });
                             },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFFE5A96A)
-                                    : const Color(0xFF141526),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : const Color(0xFF535882),
-                                  width: isSelected ? 2 : 1,
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.asset(
-                                  'img/Icons/$iconName.png',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Icon(
-                                        Icons.person,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? const Color(0xFFE5A96A)
+                                          : const Color(0xFF141526),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
                                         color: isSelected
-                                            ? const Color(0xFF282A45)
-                                            : Colors.white54,
-                                        size: 20,
+                                            ? Colors.white
+                                            : const Color(0xFF535882),
+                                        width: isSelected ? 2 : 1,
                                       ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.asset(
+                                        'img/Icons/$iconName.png',
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Icon(
+                                                  Icons.person,
+                                                  color: isSelected
+                                                      ? const Color(0xFF282A45)
+                                                      : Colors.white54,
+                                                  size: 20,
+                                                ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "0 lvl", // İlk açılışta herkes 0 level
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? const Color(0xFFE5A96A)
+                                        : Colors.white54,
+                                    fontSize: 10,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
                             ),
                           );
                         },
@@ -253,7 +271,7 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
                                 ),
                               )
                             : const Text(
-                                "Devam Et",
+                                "Maceraya Başla",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,

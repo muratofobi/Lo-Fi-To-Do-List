@@ -11,6 +11,7 @@ class HomeView extends StatefulWidget {
   final String userName;
   final String userAvatar;
   final int userXp;
+  final Map<String, int> allAvatarXps; // Ekranda göstermek için eklendi
   final Function(String, String) onUserPrefsChanged;
   final Function(int) onUserXpGained;
   final Function(String) onTaskToggled;
@@ -21,6 +22,7 @@ class HomeView extends StatefulWidget {
     required this.userName,
     required this.userAvatar,
     required this.userXp,
+    required this.allAvatarXps,
     required this.onUserPrefsChanged,
     required this.onUserXpGained,
     required this.onTaskToggled,
@@ -35,7 +37,7 @@ class _HomeViewState extends State<HomeView> {
   String _currentTime = "";
 
   Timer? _countdownTimer;
-  int _timerDurationInSeconds = 10 * 60; // Varsayılan 10 dakika
+  int _timerDurationInSeconds = 10 * 60;
   int _remainingSeconds = 10 * 60;
   bool _isRunning = false;
   bool _isSoundEnabled = true;
@@ -167,12 +169,16 @@ class _HomeViewState extends State<HomeView> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    "Avatarı Değiştir",
+                    "Karakterini Seç",
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   const SizedBox(height: 8),
+
+                  // ==========================================
+                  // YENİ: ALTI LEVEL YAZILI KARAKTER IZGARASI
+                  // ==========================================
                   SizedBox(
-                    height: 140,
+                    height: 220, // Yazı sığması için yüksekliği artırdık
                     child: GridView.builder(
                       physics: const BouncingScrollPhysics(),
                       gridDelegate:
@@ -180,45 +186,73 @@ class _HomeViewState extends State<HomeView> {
                             crossAxisCount: 6,
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 8,
+                            childAspectRatio:
+                                0.65, // Dikdörtgen görünümü için oran
                           ),
                       itemCount: 48,
                       itemBuilder: (context, index) {
                         String iconName = 'Icon${index + 1}';
                         bool isSelected = tempAvatar == iconName;
+
+                        // O karakterin hafızadaki XP'sinden Levelini çekiyoruz
+                        int charXp = widget.allAvatarXps[iconName] ?? 0;
+                        int charLevel = LevelSystem.getLevel(charXp);
+
                         return GestureDetector(
                           onTap: () {
                             setModalState(() {
                               tempAvatar = iconName;
                             });
                           },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFFE5A96A)
-                                  : const Color(0xFF141526),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isSelected
-                                    ? Colors.white
-                                    : const Color(0xFF535882),
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.asset(
-                                'img/Icons/$iconName.png',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Icon(
-                                      Icons.person,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFFE5A96A)
+                                        : const Color(0xFF141526),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
                                       color: isSelected
-                                          ? const Color(0xFF282A45)
-                                          : Colors.white54,
-                                      size: 20,
+                                          ? Colors.white
+                                          : const Color(0xFF535882),
+                                      width: isSelected ? 2 : 1,
                                     ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.asset(
+                                      'img/Icons/$iconName.png',
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) => Icon(
+                                            Icons.person,
+                                            color: isSelected
+                                                ? const Color(0xFF282A45)
+                                                : Colors.white54,
+                                            size: 20,
+                                          ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 4),
+                              // KARAKTER SEVİYE YAZISI
+                              Text(
+                                "${charLevel} lvl",
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? const Color(0xFFE5A96A)
+                                      : Colors.white54,
+                                  fontSize: 10,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -241,7 +275,7 @@ class _HomeViewState extends State<HomeView> {
                         Navigator.pop(context);
                       },
                       child: const Text(
-                        "Kaydet",
+                        "Karakteri Yükle",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -332,7 +366,6 @@ class _HomeViewState extends State<HomeView> {
                     ),
                   ),
                   child: CupertinoTimerPicker(
-                    // YENİ: Saat, Dakika, Saniye modu aktif edildi
                     mode: CupertinoTimerPickerMode.hms,
                     initialTimerDuration: Duration(
                       seconds: _timerDurationInSeconds,
@@ -361,9 +394,6 @@ class _HomeViewState extends State<HomeView> {
   Widget build(BuildContext context) {
     int completedTasks = widget.tasks.where((t) => t.isCompleted).length;
 
-    // ==========================================
-    // YENİ: SAAT, DAKİKA VE SANİYE MATEMATİĞİ
-    // ==========================================
     int hours = _remainingSeconds ~/ 3600;
     int minutes = (_remainingSeconds % 3600) ~/ 60;
     int seconds = _remainingSeconds % 60;
@@ -372,7 +402,6 @@ class _HomeViewState extends State<HomeView> {
     String minutesStr = minutes.toString().padLeft(2, '0');
     String secondsStr = seconds.toString().padLeft(2, '0');
 
-    // Eğer saat 0 ise sadece Dakika:Saniye gösterir, saati aşarsa Saat:Dakika:Saniye formatına döner
     String timerDisplay = hours > 0
         ? "$hoursStr:$minutesStr:$secondsStr"
         : "$minutesStr:$secondsStr";
@@ -520,7 +549,7 @@ class _HomeViewState extends State<HomeView> {
                 const Divider(color: Color(0xFF535882), thickness: 2),
                 const SizedBox(height: 10),
                 Text(
-                  timerDisplay, // YENİ: Saat uyumlu metin
+                  timerDisplay,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 48,
@@ -624,7 +653,7 @@ class _HomeViewState extends State<HomeView> {
             "Daha fazla XP kazanımı için Görevlerinizi tamamladığınızdan emin olun...",
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color.fromARGB(198, 255, 255, 255),
+              color: Color.fromARGB(206, 255, 255, 255),
               fontSize: 11,
               fontStyle: FontStyle.italic,
             ),

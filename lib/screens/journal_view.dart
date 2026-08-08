@@ -16,10 +16,11 @@ class _JournalViewState extends State<JournalView> {
   bool _isEditMode = false;
 
   List<Map<String, dynamic>> _globalHabits = [
-    {"id": "1", "title": "Beslenme düzenime uydum"},
-    {"id": "2", "title": "Antrenman yaptım"},
-    {"id": "3", "title": "Kodlama yaptım"},
+    {"id": "1", "title": "Hedeflerim Doğrultusunda çalıştım"},
+    {"id": "2", "title": "Beslenme düzenime uydum"},
+    {"id": "3", "title": "2+ Litre su içttim"},
     {"id": "4", "title": "Günlük yazdım"},
+    {"id": "5", "title": "Spor yaptım"},
   ];
 
   final Map<String, Map<String, dynamic>> _dailyDatabase = {};
