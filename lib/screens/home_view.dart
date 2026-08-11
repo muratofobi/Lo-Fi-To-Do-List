@@ -11,7 +11,7 @@ class HomeView extends StatefulWidget {
   final String userName;
   final String userAvatar;
   final int userXp;
-  final Map<String, int> allAvatarXps; // Ekranda göstermek için eklendi
+  final Map<String, int> allAvatarXps;
   final Function(String, String) onUserPrefsChanged;
   final Function(int) onUserXpGained;
   final Function(String) onTaskToggled;
@@ -40,7 +40,9 @@ class _HomeViewState extends State<HomeView> {
   int _timerDurationInSeconds = 10 * 60;
   int _remainingSeconds = 10 * 60;
   bool _isRunning = false;
-  bool _isSoundEnabled = true;
+  final bool _isSoundEnabled = true;
+
+  OverlayEntry? _zoomOverlay; // YENİ OVERLAY SİSTEMİ
 
   @override
   void initState() {
@@ -96,6 +98,56 @@ class _HomeViewState extends State<HomeView> {
       _remainingSeconds = _timerDurationInSeconds;
     });
     NotificationService().cancelNotification();
+  }
+
+  // ==========================================
+  // YENİ: KESİNTİSİZ ZOOM OVERLAY SİSTEMİ
+  // ==========================================
+  void _showAvatarZoom(BuildContext context, String iconName) {
+    if (_zoomOverlay != null) return;
+    FocusScope.of(context).unfocus();
+
+    _zoomOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 200),
+              builder: (context, val, child) =>
+                  Container(color: Colors.black.withOpacity(0.85 * val)),
+            ),
+          ),
+          Center(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.5, end: 1.0),
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutBack,
+              builder: (context, val, child) => Transform.scale(
+                scale: val,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset(
+                    'img/Icons/$iconName.png',
+                    width: 280,
+                    height: 280,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_zoomOverlay!);
+  }
+
+  void _hideAvatarZoom(BuildContext context) {
+    _zoomOverlay?.remove();
+    _zoomOverlay = null;
   }
 
   void _showSettingsModal() {
@@ -174,11 +226,8 @@ class _HomeViewState extends State<HomeView> {
                   ),
                   const SizedBox(height: 8),
 
-                  // ==========================================
-                  // YENİ: ALTI LEVEL YAZILI KARAKTER IZGARASI
-                  // ==========================================
                   SizedBox(
-                    height: 220, // Yazı sığması için yüksekliği artırdık
+                    height: 220,
                     child: GridView.builder(
                       physics: const BouncingScrollPhysics(),
                       gridDelegate:
@@ -186,15 +235,13 @@ class _HomeViewState extends State<HomeView> {
                             crossAxisCount: 6,
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 8,
-                            childAspectRatio:
-                                0.65, // Dikdörtgen görünümü için oran
+                            childAspectRatio: 0.65,
                           ),
                       itemCount: 48,
                       itemBuilder: (context, index) {
                         String iconName = 'Icon${index + 1}';
                         bool isSelected = tempAvatar == iconName;
 
-                        // O karakterin hafızadaki XP'sinden Levelini çekiyoruz
                         int charXp = widget.allAvatarXps[iconName] ?? 0;
                         int charLevel = LevelSystem.getLevel(charXp);
 
@@ -204,6 +251,10 @@ class _HomeViewState extends State<HomeView> {
                               tempAvatar = iconName;
                             });
                           },
+                          onLongPressStart: (_) =>
+                              _showAvatarZoom(context, iconName),
+                          onLongPressEnd: (_) => _hideAvatarZoom(context),
+                          onLongPressCancel: () => _hideAvatarZoom(context),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -226,6 +277,7 @@ class _HomeViewState extends State<HomeView> {
                                     child: Image.asset(
                                       'img/Icons/$iconName.png',
                                       fit: BoxFit.cover,
+                                      gaplessPlayback: true,
                                       errorBuilder:
                                           (context, error, stackTrace) => Icon(
                                             Icons.person,
@@ -239,9 +291,8 @@ class _HomeViewState extends State<HomeView> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              // KARAKTER SEVİYE YAZISI
                               Text(
-                                "${charLevel} lvl",
+                                "$charLevel lvl",
                                 style: TextStyle(
                                   color: isSelected
                                       ? const Color(0xFFE5A96A)
@@ -650,7 +701,7 @@ class _HomeViewState extends State<HomeView> {
           ),
           const SizedBox(height: 10),
           const Text(
-            "Daha fazla XP kazanımı için Görevlerinizi tamamladığınızdan emin olun...",
+            "Daha fazla XP kazanımı için Görevlerini tamamladığından emin ol...",
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Color.fromARGB(206, 255, 255, 255),

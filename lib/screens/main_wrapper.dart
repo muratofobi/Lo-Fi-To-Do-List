@@ -30,6 +30,9 @@ class _MainWrapperState extends State<MainWrapper> {
   late Map<String, int> _allAvatarXps; // Ekranda anlık güncellenen depo
   late int _currentUserXp; // Ekranda görünen aktif karakterin XP'si
 
+  // YENİ: Sayfa kaydırma animasyonlarını yönetecek kontrolcü
+  late PageController _pageController;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +40,16 @@ class _MainWrapperState extends State<MainWrapper> {
     _currentUserAvatar = widget.userAvatar;
     _allAvatarXps = Map.from(widget.allAvatarXps);
     _currentUserXp = _allAvatarXps[_currentUserAvatar] ?? 0;
+
+    // YENİ: Sayfa kontrolcüsünü seçili indeks ile başlatıyoruz
+    _pageController = PageController(initialPage: _selectedIndex);
+  }
+
+  @override
+  void dispose() {
+    // YENİ: Sayfa kapatıldığında hafıza sızıntısı olmaması için controller'ı siliyoruz
+    _pageController.dispose();
+    super.dispose();
   }
 
   // === KARAKTER DEĞİŞTİRİLDİĞİNDE ===
@@ -147,7 +160,19 @@ class _MainWrapperState extends State<MainWrapper> {
             child: Container(color: Colors.black.withOpacity(0.3)),
           ),
           SafeArea(
-            child: IndexedStack(index: _selectedIndex, children: pages),
+            // YENİ: IndexedStack silindi, yerine kaydırmalı PageView eklendi
+            child: PageView(
+              controller: _pageController,
+              physics:
+                  const BouncingScrollPhysics(), // Ekranın kenarında esneme efekti yapar
+              onPageChanged: (index) {
+                // Ekran kaydırıldığında alt menünün indeksini de günceller
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              children: pages,
+            ),
           ),
         ],
       ),
@@ -164,9 +189,12 @@ class _MainWrapperState extends State<MainWrapper> {
           unselectedItemColor: Colors.white54,
           currentIndex: _selectedIndex,
           onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
+            // YENİ: Alt menüden tıklandığında sayfaya yumuşakça kayarak geçiş yapar
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
           },
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Ev'),

@@ -1,7 +1,7 @@
 name: first_test_app
 description: A new Flutter project.
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+4
 
 environment:
   sdk: ^3.11.1
@@ -18,6 +18,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Logo oluşturucu paketi ekledik
+  flutter_launcher_icons: ^0.13.1 
+
+# Logo ayarlarını tanımladık
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "img/logo.png" # Kendi logonun tam yolunu buraya yaz
 
 flutter:
   uses-material-design: true

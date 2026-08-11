@@ -5,8 +5,8 @@ class LevelSystem {
   static const int xpPerLevel = 100; // 1 Seviye atlamak için gereken XP
   static const int maxLevel = 100; // YENİ: Maksimum seviye sınırı (Level Cap)
 
-  static const int taskCompletedXp = 10; // 1 Görev = 10 XP
-  static const int routineCompletedXp = 5; // 1 Rutin = 5 XP
+  static const int taskCompletedXp = 25; // 1 Görev = 10 XP
+  static const int routineCompletedXp = 10; // 1 Rutin = 5 XP
   static const int timerXpPerMinute = 2; // 1 Dakika Sayaç = 2 XP
 
   // --- HESAPLAMA YARDIMCILARI ---

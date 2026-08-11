@@ -15,7 +15,7 @@ class _JournalViewState extends State<JournalView> {
   DateTime _selectedDate = DateTime.now();
   bool _isEditMode = false;
 
-  List<Map<String, dynamic>> _globalHabits = [
+  final List<Map<String, dynamic>> _globalHabits = [
     {"id": "1", "title": "Hedeflerim Doğrultusunda çalıştım"},
     {"id": "2", "title": "Beslenme düzenime uydum"},
     {"id": "3", "title": "2+ Litre su içttim"},
@@ -102,7 +102,9 @@ class _JournalViewState extends State<JournalView> {
               surface: Color(0xFF282A45),
               onSurface: Colors.white,
             ),
-            dialogBackgroundColor: const Color(0xFF1E1F36),
+            dialogTheme: DialogThemeData(
+              backgroundColor: const Color(0xFF1E1F36),
+            ),
           ),
           child: child!,
         );
@@ -512,7 +514,7 @@ class _JournalViewState extends State<JournalView> {
                     textAlignVertical: TextAlignVertical.top,
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: const InputDecoration(
-                      hintText: "Bugün neler yaptın, kafandan neler geçiyor...",
+                      hintText: "Bugün neler yaptın, nasıl bir gündü?",
                       hintStyle: TextStyle(color: Colors.white38),
                       border: InputBorder.none,
                       isDense: true,

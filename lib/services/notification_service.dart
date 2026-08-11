@@ -19,14 +19,28 @@ class NotificationService {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
+    // ==========================================
+    // YENİ: iOS (Apple) UYUMLULUĞU EKLENDİ
+    // ==========================================
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
+
     const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
+        InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsIOS, // iOS ayarlarını sisteme dahil ettik
+        );
 
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
   // Kullanıcıdan bildirim izni isteme (Uygulama ilk açıldığında çalışacak)
   Future<void> requestPermissions() async {
+    // Android izinleri
     final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
         flutterLocalNotificationsPlugin
             .resolvePlatformSpecificImplementation<
@@ -35,30 +49,60 @@ class NotificationService {
 
     await androidImplementation?.requestNotificationsPermission();
     await androidImplementation?.requestExactAlarmsPermission();
+
+    // iOS İzinleri (Sadece Apple cihazlarda otomatik tetiklenir)
+    final IOSFlutterLocalNotificationsPlugin? iosImplementation =
+        flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >();
+    await iosImplementation?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
   }
 
   // Timer bittiğinde çalacak alarmı kurma
   Future<void> scheduleTimerNotification(int durationInSeconds) async {
-    const AndroidNotificationDetails androidNotificationDetails =
-        AndroidNotificationDetails(
-          'timer_channel_id',
-          'Focus Timer Alarmları',
-          channelDescription: 'Timer süresi bittiğinde çalan bildirimler',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
+    const AndroidNotificationDetails
+    androidNotificationDetails = AndroidNotificationDetails(
+      'focus_timer_channel', // Kanal ID'sini değiştirdik ki eski sessiz kanal önbellekte kalmasın
+      'Odaklanma Alarmları',
+      channelDescription:
+          'Timer süresi bittiğinde çalan yüksek öncelikli alarm',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      // ==========================================
+      // YENİ: ANDROID GÜVENLİK DUVARINI AŞAN AYARLAR
+      // ==========================================
+      fullScreenIntent: true, // Telefon kilitliyken bile ekranı uyandırır
+      category: AndroidNotificationCategory
+          .alarm, // Sisteme bunun acil bir ALARM olduğunu bildirir
+      visibility:
+          NotificationVisibility.public, // Kilit ekranında detayları gösterir
+    );
+
+    // iOS için bildirim detayları
+    const DarwinNotificationDetails iosNotificationDetails =
+        DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
         );
 
     const NotificationDetails notificationDetails = NotificationDetails(
       android: androidNotificationDetails,
+      iOS: iosNotificationDetails, // iOS ayarları eklendi
     );
 
     // Şu anki zamana timer süresini ekleyerek alarmı kur
     await flutterLocalNotificationsPlugin.zonedSchedule(
       0, // Bildirim ID'si
       'Süre Doldu!',
-      'Odaklanma seansın başarıyla tamamlandı.',
+      'Odaklanma seansın başarıyla tamamlandı. XP kazandın!',
       tz.TZDateTime.now(tz.local).add(Duration(seconds: durationInSeconds)),
       notificationDetails,
       androidScheduleMode: AndroidScheduleMode
