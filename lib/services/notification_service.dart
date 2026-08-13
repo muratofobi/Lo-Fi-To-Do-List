@@ -67,22 +67,13 @@ class NotificationService {
   Future<void> scheduleTimerNotification(int durationInSeconds) async {
     const AndroidNotificationDetails
     androidNotificationDetails = AndroidNotificationDetails(
-      'focus_timer_channel', // Kanal ID'sini değiştirdik ki eski sessiz kanal önbellekte kalmasın
-      'Odaklanma Alarmları',
-      channelDescription:
-          'Timer süresi bittiğinde çalan yüksek öncelikli alarm',
+      'focus_timer_safe_channel_v2', // Kanalı v2 yaptık (eski sessiz önbelleği ezmek için)
+      'Odaklanma Bildirimleri',
+      channelDescription: 'Timer süresi bittiğinde gelen bildirim',
       importance: Importance.max,
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
-      // ==========================================
-      // YENİ: ANDROID GÜVENLİK DUVARINI AŞAN AYARLAR
-      // ==========================================
-      fullScreenIntent: true, // Telefon kilitliyken bile ekranı uyandırır
-      category: AndroidNotificationCategory
-          .alarm, // Sisteme bunun acil bir ALARM olduğunu bildirir
-      visibility:
-          NotificationVisibility.public, // Kilit ekranında detayları gösterir
     );
 
     // iOS için bildirim detayları
@@ -98,15 +89,15 @@ class NotificationService {
       iOS: iosNotificationDetails, // iOS ayarları eklendi
     );
 
-    // Şu anki zamana timer süresini ekleyerek alarmı kur
+    // DÜZELTME 1: tz.UTC yerine yerel saate (tz.local) döndük.
     await flutterLocalNotificationsPlugin.zonedSchedule(
       0, // Bildirim ID'si
       'Süre Doldu!',
-      'Odaklanma seansın başarıyla tamamlandı. XP kazandın!',
+      'Odaklanma seansın başarıyla tamamlandı.',
       tz.TZDateTime.now(tz.local).add(Duration(seconds: durationInSeconds)),
       notificationDetails,
-      androidScheduleMode: AndroidScheduleMode
-          .exactAllowWhileIdle, // Arka planda bile tam zamanında çalışır
+      // DÜZELTME 2: inexact yerine exact moduna geri döndük (saniye saniyesine çalması için).
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );

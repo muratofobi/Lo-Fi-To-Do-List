@@ -44,7 +44,7 @@ android {
     defaultConfig {
         applicationId = "com.mcosoft.retroyapilacaklar"
         minSdk = flutter.minSdkVersion
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -53,6 +53,13 @@ android {
         release {
             // 3. DÜZELTME: "debug" yazan yeri "release" olarak değiştirdik
             signingConfig = signingConfigs.getByName("release")
+            
+            // =========================================================
+            // YENİ EKLENEN BÖLÜM: ProGuard / R8 Kurallarını Aktif Etme
+            // (Gson TypeToken çökmesini engelleyecek kural dosyasına bağlanır)
+            // =========================================================
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
         }
     }
 }

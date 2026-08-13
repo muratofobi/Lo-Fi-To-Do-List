@@ -31,7 +31,7 @@ class LoFiToDoApp extends StatelessWidget {
 
     final notificationService = NotificationService();
     await notificationService.init();
-    notificationService.requestPermissions();
+    await notificationService.requestPermissions(); // İŞTE BURAYA AWAIT EKLENDİ
 
     return {
       'name': savedName,
