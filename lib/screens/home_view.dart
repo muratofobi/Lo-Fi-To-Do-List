@@ -42,7 +42,7 @@ class _HomeViewState extends State<HomeView> {
   bool _isRunning = false;
   final bool _isSoundEnabled = true;
 
-  OverlayEntry? _zoomOverlay; // YENİ OVERLAY SİSTEMİ
+  OverlayEntry? _zoomOverlay;
 
   @override
   void initState() {
@@ -100,9 +100,6 @@ class _HomeViewState extends State<HomeView> {
     NotificationService().cancelNotification();
   }
 
-  // ==========================================
-  // YENİ: KESİNTİSİZ ZOOM OVERLAY SİSTEMİ
-  // ==========================================
   void _showAvatarZoom(BuildContext context, String iconName) {
     if (_zoomOverlay != null) return;
     FocusScope.of(context).unfocus();
@@ -115,7 +112,7 @@ class _HomeViewState extends State<HomeView> {
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 200),
               builder: (context, val, child) =>
-                  Container(color: Colors.black.withOpacity(0.85 * val)),
+                  Container(color: Colors.black.withValues(alpha: 0.85 * val)),
             ),
           ),
           Center(
@@ -332,6 +329,19 @@ class _HomeViewState extends State<HomeView> {
                           fontSize: 16,
                         ),
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 16), // YENİ EKLENEN BOŞLUK
+                  // ==========================================
+                  // YENİ: GİZLİLİK VE VERİ SİLİNME NOTU
+                  // ==========================================
+                  const Text(
+                    "Dikkatinize! Tüm verileriniz yalnızca bu cihazda (yerel olarak) saklanır. Uygulamayı silmeniz durumunda tüm kayıtlarınız kalıcı olarak silinebilir.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 10,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
                   const SizedBox(height: 30),

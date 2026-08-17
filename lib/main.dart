@@ -173,7 +173,7 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 200),
               builder: (context, val, child) =>
-                  Container(color: Colors.black.withOpacity(0.85 * val)),
+                  Container(color: Colors.black.withValues(alpha: 0.85 * val)),
             ),
           ),
           Center(
@@ -228,7 +228,7 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
             ),
           ),
           Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.65)),
+            child: Container(color: Colors.black.withValues(alpha: 0.65)),
           ),
           SafeArea(
             child: Padding(
@@ -242,7 +242,7 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF282A45).withOpacity(0.95),
+                      color: const Color(0xFF282A45).withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: const Color(0xFFE5A96A),
@@ -250,7 +250,7 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.4),
+                          color: Colors.black.withValues(alpha: 0.4),
                           blurRadius: 20,
                           spreadRadius: 2,
                           offset: const Offset(0, 8),
@@ -434,6 +434,19 @@ class _NamePromptScreenState extends State<NamePromptScreen> {
                                       Icon(Icons.arrow_forward_ios, size: 16),
                                     ],
                                   ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // ==========================================
+                        // YENİ: GİZLİLİK VE VERİ SİLİNME NOTU EKLENDİ
+                        // ==========================================
+                        const Text(
+                          "Dikkatinize! Tüm verileriniz yalnızca bu cihazda (yerel olarak) saklanır. Uygulamayı silmeniz durumunda tüm kayıtlarınız kalıcı olarak silinebilir.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],

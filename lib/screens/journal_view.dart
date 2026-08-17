@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // YENİ: Eklendi
+import 'dart:convert'; // YENİ: JSON için eklendi
 import '../widgets/retro_card.dart';
-import '../utils/level_system.dart'; // Algoritmayı çağırdık
+import '../utils/level_system.dart';
 
 class JournalView extends StatefulWidget {
-  final Function(int) onUserXpGained; // XP tetikleyicisi eklendi
+  final Function(int) onUserXpGained;
 
   const JournalView({super.key, required this.onUserXpGained});
 
@@ -15,7 +17,7 @@ class _JournalViewState extends State<JournalView> {
   DateTime _selectedDate = DateTime.now();
   bool _isEditMode = false;
 
-  final List<Map<String, dynamic>> _globalHabits = [
+  List<Map<String, dynamic>> _globalHabits = [
     {"id": "1", "title": "Hedeflerim Doğrultusunda çalıştım"},
     {"id": "2", "title": "Beslenme düzenime uydum"},
     {"id": "3", "title": "2+ Litre su içttim"},
@@ -23,47 +25,77 @@ class _JournalViewState extends State<JournalView> {
     {"id": "5", "title": "Spor yaptım"},
   ];
 
-  final Map<String, Map<String, dynamic>> _dailyDatabase = {};
-  int _selectedMood = 2;
+  Map<String, Map<String, dynamic>> _dailyDatabase = {};
+  int _selectedMood = 1;
   final TextEditingController _journalController = TextEditingController();
 
   Map<String, bool> _currentHabitStatus = {};
-
-  // XP FARM'INI ENGELLEMEK İÇİN GEREKLİ: O gün için önceden kaydedilmiş metnin XP değerini tutar
   int _previouslySavedJournalXp = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadDataForDate(_selectedDate);
+    _loadAllJournalData(); // YENİ: Başlangıçta tüm veriyi çeker
   }
 
   String _getDateKey(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
-  void _saveCurrentData() {
+  // YENİ: Veritabanını SharedPreferences'dan tamamen yükler
+  Future<void> _loadAllJournalData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? dbString = prefs.getString('daily_database');
+    final String? habitsString = prefs.getString('global_habits');
+
+    setState(() {
+      if (habitsString != null) {
+        _globalHabits = List<Map<String, dynamic>>.from(
+          json.decode(habitsString),
+        );
+      }
+
+      if (dbString != null) {
+        final Map<String, dynamic> decodedDb = json.decode(dbString);
+        _dailyDatabase.clear();
+        decodedDb.forEach((key, value) {
+          _dailyDatabase[key] = Map<String, dynamic>.from(value);
+        });
+      }
+    });
+
+    _loadDataForDate(
+      _selectedDate,
+    ); // Veriler yüklendikten sonra UI'ı günceller
+  }
+
+  // YENİ: Kendi eklediği veya sildiği rutinleri (habits) cihazda tutar
+  Future<void> _saveHabitsToDisk() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('global_habits', json.encode(_globalHabits));
+  }
+
+  Future<void> _saveCurrentData() async {
     String key = _getDateKey(_selectedDate);
 
-    // === METİN (JOURNAL) XP HESAPLAMASI ===
-    // Metin için kazanılması gereken yeni XP miktarını algoritmaya soruyoruz
     int newJournalXp = LevelSystem.calculateJournalXp(_journalController.text);
-
-    // Yalnızca aradaki farkı Ana Beyne gönderiyoruz (Eğer sildiyse negatif XP gider)
     int xpDifference = newJournalXp - _previouslySavedJournalXp;
+
     if (xpDifference != 0) {
       widget.onUserXpGained(xpDifference);
-      _previouslySavedJournalXp =
-          newJournalXp; // Kaydedilen durumu güncelliyoruz
+      _previouslySavedJournalXp = newJournalXp;
     }
 
     _dailyDatabase[key] = {
       'mood': _selectedMood,
       'journal': _journalController.text,
       'habitStatus': Map<String, bool>.from(_currentHabitStatus),
-      'savedJournalXp':
-          _previouslySavedJournalXp, // O günün XP'sini de veritabanına ekliyoruz
+      'savedJournalXp': _previouslySavedJournalXp,
     };
+
+    // YENİ: Anlık veritabanını diske yazar
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('daily_database', json.encode(_dailyDatabase));
   }
 
   void _loadDataForDate(DateTime date) {
@@ -72,14 +104,15 @@ class _JournalViewState extends State<JournalView> {
     if (_dailyDatabase.containsKey(key)) {
       var data = _dailyDatabase[key]!;
       setState(() {
-        _selectedMood = data['mood'];
-        _journalController.text = data['journal'];
-        _currentHabitStatus = Map<String, bool>.from(data['habitStatus']);
+        _selectedMood = data['mood'] ?? 2;
+        _journalController.text = data['journal'] ?? "";
+        // JSON'dan gelen map'i tekrar uygun tipe çeviriyoruz
+        _currentHabitStatus = Map<String, bool>.from(data['habitStatus'] ?? {});
         _previouslySavedJournalXp = data['savedJournalXp'] ?? 0;
       });
     } else {
       setState(() {
-        _selectedMood = 1;
+        _selectedMood = 2; // Varsayılan mod
         _journalController.text = "";
         _currentHabitStatus = {};
         _previouslySavedJournalXp = 0;
@@ -102,8 +135,8 @@ class _JournalViewState extends State<JournalView> {
               surface: Color(0xFF282A45),
               onSurface: Colors.white,
             ),
-            dialogTheme: DialogThemeData(
-              backgroundColor: const Color(0xFF1E1F36),
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Color(0xFF1E1F36),
             ),
           ),
           child: child!,
@@ -112,7 +145,7 @@ class _JournalViewState extends State<JournalView> {
     );
 
     if (picked != null && picked != _selectedDate) {
-      _saveCurrentData();
+      await _saveCurrentData(); // YENİ: Öncekini diske yaz
       setState(() {
         _selectedDate = picked;
         _isEditMode = false;
@@ -171,6 +204,7 @@ class _JournalViewState extends State<JournalView> {
                       "title": titleController.text,
                     });
                   });
+                  _saveHabitsToDisk(); // YENİ: Eklenen rutini diske yaz
                   Navigator.pop(context);
                 }
               },
@@ -208,8 +242,8 @@ class _JournalViewState extends State<JournalView> {
               ),
               if (!isToday)
                 TextButton.icon(
-                  onPressed: () {
-                    _saveCurrentData();
+                  onPressed: () async {
+                    await _saveCurrentData();
                     setState(() {
                       _selectedDate = DateTime.now();
                     });
@@ -356,7 +390,6 @@ class _JournalViewState extends State<JournalView> {
                   thickness: 1.5,
                   height: 0,
                 ),
-
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -380,7 +413,8 @@ class _JournalViewState extends State<JournalView> {
                             _currentHabitStatus[habitId] = val ?? false;
                           });
 
-                          // === RUTİNLER İÇİN XP TETİKLEYİCİ ===
+                          _saveCurrentData(); // YENİ: Kapanırsa XP ile kutucuk tutarsızlığı olmasın diye diske yaz
+
                           if (val == true) {
                             widget.onUserXpGained(
                               LevelSystem.routineCompletedXp,
@@ -411,6 +445,7 @@ class _JournalViewState extends State<JournalView> {
                                       setState(() {
                                         _globalHabits.removeAt(index);
                                       });
+                                      _saveHabitsToDisk(); // YENİ: Silinen rutini diske bildir
                                     },
                                     child: const Icon(
                                       Icons.delete_outline,
@@ -434,6 +469,7 @@ class _JournalViewState extends State<JournalView> {
                                                     item,
                                                   );
                                                 });
+                                                _saveHabitsToDisk(); // YENİ: Sıralamayı kaydet
                                               }
                                             : null,
                                         child: Icon(
@@ -455,6 +491,7 @@ class _JournalViewState extends State<JournalView> {
                                                     item,
                                                   );
                                                 });
+                                                _saveHabitsToDisk(); // YENİ: Sıralamayı kaydet
                                               }
                                             : null,
                                         child: Icon(
@@ -499,7 +536,7 @@ class _JournalViewState extends State<JournalView> {
                     color: const Color(0xFF1E1F36),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: const Color(0xFF535882).withOpacity(0.5),
+                      color: const Color(0xFF535882).withValues(alpha: 0.5),
                     ),
                   ),
                   padding: const EdgeInsets.symmetric(
@@ -525,16 +562,18 @@ class _JournalViewState extends State<JournalView> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: ElevatedButton(
-                    onPressed: () {
-                      _saveCurrentData();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Günlük başarıyla kaydedildi! XP'niz hesaplandı.",
+                    onPressed: () async {
+                      await _saveCurrentData();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "Günlük başarıyla kaydedildi! XP'niz hesaplandı.",
+                            ),
+                            duration: Duration(seconds: 2),
                           ),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE5A96A),
@@ -565,7 +604,10 @@ class _JournalViewState extends State<JournalView> {
   Widget _buildMoodIcon(int index, String emoji, String label) {
     bool isSelected = _selectedMood == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedMood = index),
+      onTap: () {
+        setState(() => _selectedMood = index);
+        _saveCurrentData(); // YENİ: Mod seçildiğinde veriyi garantiye al
+      },
       child: Column(
         children: [
           Container(

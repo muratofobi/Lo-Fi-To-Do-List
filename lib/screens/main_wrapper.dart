@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // YENİ: JSON dönüşümleri için eklendi
 import '../models/task_item.dart';
 import '../utils/level_system.dart';
 import 'home_view.dart';
@@ -30,76 +31,9 @@ class _MainWrapperState extends State<MainWrapper> {
   late Map<String, int> _allAvatarXps; // Ekranda anlık güncellenen depo
   late int _currentUserXp; // Ekranda görünen aktif karakterin XP'si
 
-  // YENİ: Sayfa kaydırma animasyonlarını yönetecek kontrolcü
   late PageController _pageController;
 
-  @override
-  void initState() {
-    super.initState();
-    _currentUserName = widget.userName;
-    _currentUserAvatar = widget.userAvatar;
-    _allAvatarXps = Map.from(widget.allAvatarXps);
-    _currentUserXp = _allAvatarXps[_currentUserAvatar] ?? 0;
-
-    // YENİ: Sayfa kontrolcüsünü seçili indeks ile başlatıyoruz
-    _pageController = PageController(initialPage: _selectedIndex);
-  }
-
-  @override
-  void dispose() {
-    // YENİ: Sayfa kapatıldığında hafıza sızıntısı olmaması için controller'ı siliyoruz
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  // === KARAKTER DEĞİŞTİRİLDİĞİNDE ===
-  Future<void> _updateUserPrefs(String newName, String newAvatar) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_name', newName);
-    await prefs.setString('user_avatar', newAvatar);
-
-    setState(() {
-      _currentUserName = newName;
-      _currentUserAvatar = newAvatar;
-      // Yeni karaktere geçtiğinde o karakterin XP'sini yükler
-      _currentUserXp = _allAvatarXps[newAvatar] ?? 0;
-    });
-  }
-
-  // === AKTİF KARAKTERE XP EKLEME FONKSİYONU ===
-  Future<void> _updateUserXp(int amount) async {
-    final prefs = await SharedPreferences.getInstance();
-    int currentXp = _allAvatarXps[_currentUserAvatar] ?? 0;
-    int newXp = currentXp + amount;
-
-    if (newXp < 0) newXp = 0;
-
-    // Sadece aktif olan avatarın hafızasına kaydeder (Örn: xp_Icon12)
-    await prefs.setInt('xp_$_currentUserAvatar', newXp);
-
-    setState(() {
-      _allAvatarXps[_currentUserAvatar] = newXp;
-      _currentUserXp = newXp;
-    });
-  }
-
-  void _toggleTask(String taskId) {
-    final taskIndex = globalTasks.indexWhere((t) => t.id == taskId);
-    if (taskIndex != -1) {
-      bool wasCompleted = globalTasks[taskIndex].isCompleted;
-
-      setState(() {
-        globalTasks[taskIndex].isCompleted = !wasCompleted;
-      });
-
-      if (!wasCompleted) {
-        _updateUserXp(LevelSystem.taskCompletedXp);
-      } else {
-        _updateUserXp(-LevelSystem.taskCompletedXp);
-      }
-    }
-  }
-
+  // Başlangıç (varsayılan) görevlerimiz
   List<TaskItem> globalTasks = [
     TaskItem(
       id: '1',
@@ -124,6 +58,97 @@ class _MainWrapperState extends State<MainWrapper> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _currentUserName = widget.userName;
+    _currentUserAvatar = widget.userAvatar;
+    _allAvatarXps = Map.from(widget.allAvatarXps);
+    _currentUserXp = _allAvatarXps[_currentUserAvatar] ?? 0;
+
+    _pageController = PageController(initialPage: _selectedIndex);
+
+    // YENİ: Uygulama açılırken görevleri hafızadan çeker
+    _loadTasks();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // YENİ: Görevleri cihaz hafızasından okuma
+  Future<void> _loadTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? tasksJson = prefs.getString('global_tasks');
+
+    if (tasksJson != null) {
+      final List<dynamic> decodedTasks = json.decode(tasksJson);
+      setState(() {
+        globalTasks = decodedTasks
+            .map((item) => TaskItem.fromJson(item))
+            .toList();
+      });
+    }
+  }
+
+  // YENİ: Görevleri cihaz hafızasına kaydetme
+  Future<void> _saveTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String encodedTasks = json.encode(
+      globalTasks.map((t) => t.toJson()).toList(),
+    );
+    await prefs.setString('global_tasks', encodedTasks);
+  }
+
+  Future<void> _updateUserPrefs(String newName, String newAvatar) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', newName);
+    await prefs.setString('user_avatar', newAvatar);
+
+    setState(() {
+      _currentUserName = newName;
+      _currentUserAvatar = newAvatar;
+      _currentUserXp = _allAvatarXps[newAvatar] ?? 0;
+    });
+  }
+
+  Future<void> _updateUserXp(int amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    int currentXp = _allAvatarXps[_currentUserAvatar] ?? 0;
+    int newXp = currentXp + amount;
+
+    if (newXp < 0) newXp = 0;
+
+    await prefs.setInt('xp_$_currentUserAvatar', newXp);
+
+    setState(() {
+      _allAvatarXps[_currentUserAvatar] = newXp;
+      _currentUserXp = newXp;
+    });
+  }
+
+  void _toggleTask(String taskId) {
+    final taskIndex = globalTasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex != -1) {
+      bool wasCompleted = globalTasks[taskIndex].isCompleted;
+
+      setState(() {
+        globalTasks[taskIndex].isCompleted = !wasCompleted;
+      });
+
+      // YENİ: Görev durumu her değiştiğinde diskte de güncellenir
+      _saveTasks();
+
+      if (!wasCompleted) {
+        _updateUserXp(LevelSystem.taskCompletedXp);
+      } else {
+        _updateUserXp(-LevelSystem.taskCompletedXp);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
       HomeView(
@@ -131,15 +156,17 @@ class _MainWrapperState extends State<MainWrapper> {
         userName: _currentUserName,
         userAvatar: _currentUserAvatar,
         userXp: _currentUserXp,
-        allAvatarXps:
-            _allAvatarXps, // Arayüzde listelemek için tümünü yolluyoruz
+        allAvatarXps: _allAvatarXps,
         onUserPrefsChanged: _updateUserPrefs,
         onUserXpGained: _updateUserXp,
         onTaskToggled: _toggleTask,
       ),
       TasksView(
         tasks: globalTasks,
-        onTasksUpdated: () => setState(() {}),
+        onTasksUpdated: () {
+          setState(() {});
+          _saveTasks(); // YENİ: Görev listesinden bir şey silinir/eklenirse anında kaydeder
+        },
         onTaskToggled: _toggleTask,
       ),
       JournalView(onUserXpGained: _updateUserXp),
@@ -157,16 +184,13 @@ class _MainWrapperState extends State<MainWrapper> {
             ),
           ),
           Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.3)),
+            child: Container(color: Colors.black.withValues(alpha: 0.3)),
           ),
           SafeArea(
-            // YENİ: IndexedStack silindi, yerine kaydırmalı PageView eklendi
             child: PageView(
               controller: _pageController,
-              physics:
-                  const BouncingScrollPhysics(), // Ekranın kenarında esneme efekti yapar
+              physics: const BouncingScrollPhysics(),
               onPageChanged: (index) {
-                // Ekran kaydırıldığında alt menünün indeksini de günceller
                 setState(() {
                   _selectedIndex = index;
                 });
@@ -189,7 +213,6 @@ class _MainWrapperState extends State<MainWrapper> {
           unselectedItemColor: Colors.white54,
           currentIndex: _selectedIndex,
           onTap: (index) {
-            // YENİ: Alt menüden tıklandığında sayfaya yumuşakça kayarak geçiş yapar
             _pageController.animateToPage(
               index,
               duration: const Duration(milliseconds: 300),
